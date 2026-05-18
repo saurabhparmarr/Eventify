@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-const connectDB = require("./config/db"); // apni db file ka path
+const connectDB = require("./config/db");
 
 const authRoutes = require("./routes/auth");
 const eventRoutes = require("./routes/events");
@@ -12,29 +12,30 @@ const bookingRoutes = require("./routes/booking");
 
 const app = express();
 
-// Database Connection
 connectDB();
-
-// Middleware
-const allowedOrigins = [
-  "http://localhost:5174",
-  "https://eventify-pink.vercel.app",
-];
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: [
+      "http://localhost:5173",
+      "https://eventify-pink.vercel.app",
+    ],
     credentials: true,
   })
 );
-
 app.use(express.json());
 
 app.get("/", (req, res) => {
   res.send("Eventify Backend Running 🚀");
 });
+app.use((err, req, res, next) => {
+  console.error(err.stack);
 
-// Routes
+  res.status(500).json({
+    message: err.message,
+  });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/bookings", bookingRoutes);

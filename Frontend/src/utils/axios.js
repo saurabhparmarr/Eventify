@@ -1,7 +1,10 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://eventify-0f8e.onrender.com/api",
+  baseURL:
+  import.meta.env.MODE === "development"
+    ? "http://localhost:5000/api"
+    : "https://eventify-0f8e.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -10,10 +13,11 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  console.log(localStorage.getItem("token"));
+
   if (token) {
-    config.headers["Authorization"] = `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token}`;
   }
+
   return config;
 });
 
