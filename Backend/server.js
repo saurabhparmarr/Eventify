@@ -16,12 +16,14 @@ const app = express();
 connectDB();
 
 // Middleware
+const allowedOrigins = [
+  "http://localhost:5174",
+  "https://eventify-pink.vercel.app",
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5174",
-      "https://eventify-alpha-two.vercel.app",
-    ],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
