@@ -18,7 +18,10 @@ connectDB();
 // Middleware
 app.use(
   cors({
-    origin: "http://localhost:5174",
+    origin: [
+      "http://localhost:5174",
+      "https://eventify-alpha-two.vercel.app",
+    ],
     credentials: true,
   })
 );
