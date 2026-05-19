@@ -23,11 +23,17 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 app.get("/", (req, res) => {
   res.send("Eventify Backend Running 🚀");
 });
+
+app.use("/api/auth", authRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/bookings", bookingRoutes);
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
 
@@ -35,10 +41,6 @@ app.use((err, req, res, next) => {
     message: err.message,
   });
 });
-
-app.use("/api/auth", authRoutes);
-app.use("/api/events", eventRoutes);
-app.use("/api/bookings", bookingRoutes);
 
 const PORT = process.env.PORT || 5000;
 
