@@ -111,14 +111,12 @@ exports.login = async (req, res) => {
 exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
-    console.log("EMAIL =>", email);
-    console.log("OTP =>", otp);
     const validOTP = await OTP.findOne({
       email,
       otp,
       action: "account_verification",
     });
-    console.log("FOUND OTP =>", validOTP);
+
     if (!validOTP) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
@@ -126,7 +124,7 @@ exports.verifyOTP = async (req, res) => {
     const user = await User.findOneAndUpdate(
       { email },
       { isVerified: true },
-      { new: true },
+      { returnDocument: "after" },
     );
     await OTP.deleteOne({ _id: validOTP._id });
 
