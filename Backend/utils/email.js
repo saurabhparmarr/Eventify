@@ -5,6 +5,17 @@ dotenv.config();
 
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
+const logEmailConfig = () => {
+  console.log("Email config:", {
+    BREVO_API_KEY: Boolean(process.env.BREVO_API_KEY),
+    EMAIL_FROM: Boolean(process.env.EMAIL_FROM),
+    SMTP_FROM: Boolean(process.env.SMTP_FROM),
+    SMTP_USER: Boolean(process.env.SMTP_USER),
+    SMTP_PASS: Boolean(process.env.SMTP_PASS),
+    SMTP_PORT: process.env.SMTP_PORT || "2525",
+  });
+};
+
 const getSender = () => ({
   name: process.env.EMAIL_FROM_NAME || "Eventify",
   email:
@@ -71,7 +82,9 @@ const sendViaSmtp = async ({ to, subject, html }) => {
   }
 
   if (!sender.email) {
-    throw new Error("EMAIL_FROM, BREVO_SENDER_EMAIL, or SMTP_FROM is not configured");
+    throw new Error(
+      "EMAIL_FROM, BREVO_SENDER_EMAIL, or SMTP_FROM is not configured",
+    );
   }
 
   const info = await createSmtpTransporter().sendMail({
@@ -146,5 +159,7 @@ const sendOTPEmail = async (userEmail, otp, type) => {
     throw error;
   }
 };
+
+logEmailConfig();
 
 module.exports = { sendBookingEmail, sendOTPEmail };
