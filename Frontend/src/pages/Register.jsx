@@ -31,7 +31,7 @@ const Register = () => {
         setShowOTP(true);
         setError("");
       } else {
-        await verifyOTP(email, otp);
+        await verifyOTP(email.trim().toLowerCase(), otp);
         navigate("/dashboard");
       }
     } catch (err) {
@@ -131,8 +131,12 @@ const Register = () => {
                   placeholder="6-digit code"
                   className="h-14 w-full rounded-lg border border-slate-200 bg-[#f7f2ea] pl-12 pr-4 text-center text-lg font-black tracking-[0.28em] outline-none transition placeholder:tracking-normal focus:border-teal-500 focus:bg-white"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   maxLength="6"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
                 />
               </span>
             </label>
