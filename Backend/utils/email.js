@@ -3,21 +3,88 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
-
-const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
+const getSender = () => ({
+  name: process.env.EMAIL_FROM_NAME || "Eventify",
+  email:
+    process.env.EMAIL_FROM ||
+    process.env.BREVO_SENDER_EMAIL ||
+    process.env.SMTP_FROM ||
+    process.env.SMTP_USER,
 });
+
+const createSmtpTransporter = () =>
+  nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE).toLowerCase() === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+  });
+
+const sendViaBrevoApi = async ({ to, subject, html }) => {
+  const sender = getSender();
+
+  if (!process.env.BREVO_API_KEY) {
+    throw new Error("BREVO_API_KEY is not configured");
+  }
+
+  if (!sender.email) {
+    throw new Error("EMAIL_FROM or BREVO_SENDER_EMAIL is not configured");
+  }
+
+  const response = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "api-key": process.env.BREVO_API_KEY,
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Brevo API email failed (${response.status}): ${body}`);
+  }
+};
+
+const sendViaSmtp = async ({ to, subject, html }) => {
+  const sender = getSender();
+
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    throw new Error("SMTP_USER or SMTP_PASS is not configured");
+  }
+
+  await createSmtpTransporter().sendMail({
+    from: `"${sender.name}" <${sender.email}>`,
+    to,
+    subject,
+    html,
+  });
+};
+
+const sendEmail = async (mail) => {
+  if (process.env.BREVO_API_KEY) {
+    return sendViaBrevoApi(mail);
+  }
+
+  return sendViaSmtp(mail);
+};
+
 const sendBookingEmail = async (userEmail, userName, eventTitle) => {
   try {
-    const mailOptions = {
-      from: process.env.SMTP_USER,
+    await sendEmail({
       to: userEmail,
       subject: `Booking Confirmed: ${eventTitle}`,
       html: `
@@ -25,8 +92,7 @@ const sendBookingEmail = async (userEmail, userName, eventTitle) => {
         <p>Your booking for the event <strong>${eventTitle}</strong> is successfully confirmed.</p>
         <p>Thank you for choosing Eventify.</p>
       `,
-    };
-    await transporter.sendMail(mailOptions);
+    });
     console.log("Email sent successfully to", userEmail);
   } catch (error) {
     console.error("Error sending email:", error);
@@ -44,8 +110,7 @@ const sendOTPEmail = async (userEmail, otp, type) => {
         ? "Please use the following OTP to verify your new Eventify account."
         : "Please use the following OTP to verify and confirm your event booking.";
 
-    const mailOptions = {
-      from: process.env.SMTP_USER,
+    await sendEmail({
       to: userEmail,
       subject: title,
       html: `
@@ -58,11 +123,11 @@ const sendOTPEmail = async (userEmail, otp, type) => {
                     <p style="color: #999; font-size: 12px;">This code expires in 5 minutes. If you didn't request this, please ignore this email.</p>
                 </div>
             `,
-    };
-    await transporter.sendMail(mailOptions);
+    });
     console.log(`OTP sent to ${userEmail} for ${type}`);
   } catch (error) {
     console.error("Error sending OTP email:", error);
+    throw error;
   }
 };
 
