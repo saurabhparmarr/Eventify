@@ -12,10 +12,12 @@ const generateToken = (id, role) => {
 };
 
 exports.register = async (req, res) => {
+  let user;
   try {
     const { name, email, password, role } = req.body;
-    let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ message: "User already exists" });
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(400).json({ message: "User already exists" });
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -24,13 +26,24 @@ exports.register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: "user", 
+      role: "user",
       isVerified: false,
     });
 
     const otp = generateOTP();
     await OTP.create({ email, otp, action: "account_verification" });
-    await sendOTPEmail(email, otp, "account_verification");
+
+    try {
+      await sendOTPEmail(email, otp, "account_verification");
+    } catch (emailError) {
+      await OTP.deleteMany({ email, action: "account_verification" });
+      await User.deleteOne({ _id: user._id });
+
+      return res.status(500).json({
+        message: "Could not send verification OTP. Please try again later.",
+        error: emailError.message,
+      });
+    }
 
     res.status(201).json({
       message: "OTP sent to email. Please verify.",
@@ -62,14 +75,25 @@ exports.login = async (req, res) => {
         otp,
         action: "account_verification",
       });
-      await sendOTPEmail(user.email, otp, "account_verification");
-      return res
-        .status(403)
-        .json({
-          message: "Account not verified",
-          needsVerification: true,
+      try {
+        await sendOTPEmail(user.email, otp, "account_verification");
+      } catch (emailError) {
+        await OTP.deleteMany({
           email: user.email,
+          action: "account_verification",
         });
+
+        return res.status(500).json({
+          message: "Could not send verification OTP. Please try again later.",
+          error: emailError.message,
+        });
+      }
+
+      return res.status(403).json({
+        message: "Account not verified",
+        needsVerification: true,
+        email: user.email,
+      });
     }
 
     res.json({

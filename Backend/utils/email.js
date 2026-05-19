@@ -10,14 +10,13 @@ const getSender = () => ({
   email:
     process.env.EMAIL_FROM ||
     process.env.BREVO_SENDER_EMAIL ||
-    process.env.SMTP_FROM ||
-    process.env.SMTP_USER,
+    process.env.SMTP_FROM,
 });
 
 const createSmtpTransporter = () =>
   nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
-    port: Number(process.env.SMTP_PORT || 587),
+    port: Number(process.env.SMTP_PORT || 2525),
     secure: String(process.env.SMTP_SECURE).toLowerCase() === "true",
     auth: {
       user: process.env.SMTP_USER,
@@ -35,7 +34,9 @@ const sendViaBrevoApi = async ({ to, subject, html }) => {
   }
 
   if (!sender.email) {
-    throw new Error("EMAIL_FROM or BREVO_SENDER_EMAIL is not configured");
+    throw new Error(
+      "EMAIL_FROM, BREVO_SENDER_EMAIL, or SMTP_FROM is not configured",
+    );
   }
 
   const response = await fetch(BREVO_API_URL, {
@@ -53,10 +54,13 @@ const sendViaBrevoApi = async ({ to, subject, html }) => {
     }),
   });
 
+  const body = await response.text();
+
   if (!response.ok) {
-    const body = await response.text();
     throw new Error(`Brevo API email failed (${response.status}): ${body}`);
   }
+
+  console.log(`Brevo API accepted email to ${to}: ${body}`);
 };
 
 const sendViaSmtp = async ({ to, subject, html }) => {
@@ -66,12 +70,24 @@ const sendViaSmtp = async ({ to, subject, html }) => {
     throw new Error("SMTP_USER or SMTP_PASS is not configured");
   }
 
-  await createSmtpTransporter().sendMail({
+  if (!sender.email) {
+    throw new Error("EMAIL_FROM, BREVO_SENDER_EMAIL, or SMTP_FROM is not configured");
+  }
+
+  const info = await createSmtpTransporter().sendMail({
     from: `"${sender.name}" <${sender.email}>`,
     to,
     subject,
     html,
   });
+
+  if (!info.accepted?.length) {
+    throw new Error(`SMTP email was not accepted. Rejected: ${info.rejected}`);
+  }
+
+  console.log(
+    `SMTP accepted email to ${to}. Message ID: ${info.messageId || "unknown"}`,
+  );
 };
 
 const sendEmail = async (mail) => {
